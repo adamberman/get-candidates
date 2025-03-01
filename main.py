@@ -5,6 +5,7 @@ from typing import List, Dict
 import base64
 import concurrent.futures
 from concurrent.futures import ThreadPoolExecutor
+import time
 
 
 
@@ -66,21 +67,23 @@ def get_greenhouse_accepted_offers(api_token: str, start_date: str = "2023-07-01
 
 def get_greenhouse_scorecards(api_token: str, application_id: int) -> List[Dict]:
     """
-    Fetches all scorecards for a given application id.
-    
-    Args:
-        api_token: Greenhouse API token
-        application_id: Application id
-        
-    Returns:
-        List of scorecard dictionaries
+    Fetches all scorecards for a given application id with rate limit handling.
     """
     print(f"Fetching scorecards for application {application_id}")
     headers = get_greenhouse_auth_headers(api_token)
+    
     response = requests.get(
         f"{GREENHOUSE_BASE_URL}/applications/{application_id}/scorecards",
         headers=headers,
     )
+    
+    # Handle rate limits explicitly
+    if response.status_code == 429:
+        retry_after = int(response.headers.get('Retry-After', 10))
+        print(f"Rate limited. Waiting {retry_after} seconds...")
+        time.sleep(retry_after)
+        return get_greenhouse_scorecards(api_token, application_id)
+    
     response.raise_for_status()
     scorecards = response.json()
     return scorecards if scorecards else []
@@ -133,7 +136,7 @@ if __name__ == "__main__":
         return candidate_id, get_greenhouse_scorecards(api_token, application_id)
     
     # Use ThreadPoolExecutor to parallelize API calls
-    with ThreadPoolExecutor(max_workers=10) as executor:
+    with ThreadPoolExecutor(max_workers=8) as executor:
         print("Processing offers in parallel...")
         future_to_offer = {executor.submit(process_offer, offer["candidate_id"], offer["application_id"]): offer for offer in accepted_offers}
         
@@ -142,8 +145,11 @@ if __name__ == "__main__":
             completed += 1
             if completed % 10 == 0:
                 print(f"Processed {completed} of {len(accepted_offers)} offers")
-            candidate_id, scorecards = future.result()
-            scorecard_data[candidate_id] = scorecards
+            try:
+                candidate_id, scorecards = future.result()
+                scorecard_data[candidate_id] = scorecards
+            except Exception as exc:
+                print(f'Offer processing generated an exception: {exc}')
     
     candidate_ids = [offer["candidate_id"] for offer in accepted_offers]
     candidates = get_greenhouse_candidates(api_token, candidate_ids)
