@@ -94,26 +94,31 @@ def get_greenhouse_candidates(api_token: str, candidate_ids: List[int]) -> Dict:
         candidate_ids: List of candidate ids
     """
     headers = get_greenhouse_auth_headers(api_token)
-    page = 1
+    # Break candidate_ids into chunks of 50
+    chunked_candidate_ids = [candidate_ids[i:i + 50] for i in range(0, len(candidate_ids), 50)]
     candidates = []
-    while True:
-        print(f"Fetching candidates page {page}")
-        response = requests.get(
-            f"{GREENHOUSE_BASE_URL}/candidates",
-            headers=headers,
-            params={
-                "page": page,
-                "per_page": 500,
-                "skip_count": True,
-                "candidate_ids": ",".join(map(str, candidate_ids))
-            }
-        )
-        response.raise_for_status()
-        new_candidates = response.json()
-        if not new_candidates:
-            break
-        candidates.extend(new_candidates)
-        page += 1
+    i = 0
+    for chunk_of_candidate_ids in chunked_candidate_ids:
+        i += 1
+        page = 1
+        while True:
+            print(f"Fetching candidates page {page} for chunk {i}")
+            response = requests.get(
+                f"{GREENHOUSE_BASE_URL}/candidates",
+                headers=headers,
+                params={
+                    "page": page,
+                    "per_page": 500,
+                    "skip_count": True,
+                    "candidate_ids": ",".join(map(str, chunk_of_candidate_ids))
+                }
+            )
+            response.raise_for_status()
+            new_candidates = response.json()
+            if not new_candidates:
+                break
+            candidates.extend(new_candidates)
+            page += 1
     return candidates
 
 if __name__ == "__main__":
