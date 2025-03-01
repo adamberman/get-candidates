@@ -156,4 +156,13 @@ if __name__ == "__main__":
     for candidate in candidates:
         candidate_data[candidate["id"]] = candidate
     print(f"Found {len(scorecard_data)} scorecards and {len(candidate_data)} candidates")
-
+    candidates_to_offers = {}
+    for offer in accepted_offers:
+        if offer["candidate_id"] not in candidates_to_offers:
+            candidate_name = candidate_data[offer["candidate_id"]]["first_name"] + " " + candidate_data[offer["candidate_id"]]["last_name"]
+            candidates_to_offers[offer["candidate_id"]] = { "name": candidate_name, "offers": 1}
+        else:
+            candidates_to_offers[offer["candidate_id"]]["offers"] += 1
+    for candidate_id, data in candidates_to_offers.items():
+        if data["offers"] > 1:
+            print(f"{data['name']} has {data['offers']} offers")
