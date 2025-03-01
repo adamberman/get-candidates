@@ -3,6 +3,8 @@ from datetime import datetime
 import os
 from typing import List, Dict
 import base64
+import concurrent.futures
+from concurrent.futures import ThreadPoolExecutor
 
 
 
@@ -81,9 +83,7 @@ def get_greenhouse_scorecards(api_token: str, application_id: int) -> List[Dict]
     )
     response.raise_for_status()
     scorecards = response.json()
-    if not scorecards:
-        return []
-    return scorecards
+    return scorecards if scorecards else []
 
 def get_greenhouse_candidates(api_token: str, candidate_ids: List[int]) -> Dict:
     """
@@ -127,12 +127,24 @@ if __name__ == "__main__":
     print(f"Found {len(accepted_offers)} accepted offers")
     scorecard_data = {}
     candidate_data = {}
-    i = 0
-    for offer in accepted_offers:
-        i += 1
-        if i % 10 == 0:
-            print(f"Processing offer {i} of {len(accepted_offers)}")
-        scorecard_data[offer["candidate_id"]] = get_greenhouse_scorecards(api_token, offer["application_id"])
+    
+    # Function to process a single offer
+    def process_offer(candidate_id: int, application_id: int):
+        return candidate_id, get_greenhouse_scorecards(api_token, application_id)
+    
+    # Use ThreadPoolExecutor to parallelize API calls
+    with ThreadPoolExecutor(max_workers=10) as executor:
+        print("Processing offers in parallel...")
+        future_to_offer = {executor.submit(process_offer, offer["candidate_id"], offer["application_id"]): offer for offer in accepted_offers}
+        
+        completed = 0
+        for future in concurrent.futures.as_completed(future_to_offer):
+            completed += 1
+            if completed % 10 == 0:
+                print(f"Processed {completed} of {len(accepted_offers)} offers")
+            candidate_id, scorecards = future.result()
+            scorecard_data[candidate_id] = scorecards
+    
     candidate_ids = [offer["candidate_id"] for offer in accepted_offers]
     candidates = get_greenhouse_candidates(api_token, candidate_ids)
     for candidate in candidates:
