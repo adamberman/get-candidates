@@ -41,6 +41,7 @@ def get_greenhouse_accepted_offers(api_token: str, start_date: str = "2023-07-01
     page = 1
     
     while True:
+        print(f"Fetching accepted offers page {page}")
         response = requests.get(
             f"{GREENHOUSE_BASE_URL}/offers",
             headers=headers,
@@ -72,6 +73,7 @@ def get_greenhouse_scorecards(api_token: str, application_id: int) -> List[Dict]
     Returns:
         List of scorecard dictionaries
     """
+    print(f"Fetching scorecards for application {application_id}")
     headers = get_greenhouse_auth_headers(api_token)
     response = requests.get(
         f"{GREENHOUSE_BASE_URL}/applications/{application_id}/scorecards",
@@ -95,6 +97,7 @@ def get_greenhouse_candidates(api_token: str, candidate_ids: List[int]) -> Dict:
     page = 1
     candidates = []
     while True:
+        print(f"Fetching candidates page {page}")
         response = requests.get(
             f"{GREENHOUSE_BASE_URL}/candidates",
             headers=headers,
