@@ -1,3 +1,4 @@
+import json
 import requests
 from datetime import datetime
 import os
@@ -124,6 +125,19 @@ def get_greenhouse_candidates(api_token: str, candidate_ids: List[int]) -> Dict:
             page += 1
     return candidates
 
+def format_scorecard(scorecard: Dict) -> Dict:
+    return {
+        "created_at": scorecard["created_at"],
+        "interview": scorecard["interview"],
+        "interview_step": scorecard["interview_step"]["name"],
+        "submitted_by": scorecard["submitted_by"]["name"],
+        "interviewer": scorecard["interviewer"]["name"],
+        "overall_recommendation": scorecard["overall_recommendation"],
+        "attributes": scorecard["attributes"],
+        "ratings": scorecard["ratings"],
+        "questions": [{ "question": question["question"], "answer": question["answer"] } for question in scorecard["questions"]],
+    }
+
 if __name__ == "__main__":
     api_token = os.getenv("GREENHOUSE_API_TOKEN")
     accepted_offers = get_greenhouse_accepted_offers(api_token)
@@ -132,13 +146,13 @@ if __name__ == "__main__":
     candidate_data = {}
     
     # Function to process a single offer
-    def process_offer(candidate_id: int, application_id: int):
-        return candidate_id, get_greenhouse_scorecards(api_token, application_id)
+    def process_offer(application_id: int):
+        return application_id, get_greenhouse_scorecards(api_token, application_id)
     
     # Use ThreadPoolExecutor to parallelize API calls
     with ThreadPoolExecutor(max_workers=6) as executor:
         print("Processing offers in parallel...")
-        future_to_offer = {executor.submit(process_offer, offer["candidate_id"], offer["application_id"]): offer for offer in accepted_offers}
+        future_to_offer = {executor.submit(process_offer, offer["application_id"]): offer for offer in accepted_offers}
         
         completed = 0
         for future in concurrent.futures.as_completed(future_to_offer):
@@ -146,8 +160,8 @@ if __name__ == "__main__":
             if completed % 10 == 0:
                 print(f"Processed {completed} of {len(accepted_offers)} offers")
             try:
-                candidate_id, scorecards = future.result()
-                scorecard_data[candidate_id] = scorecards
+                application_id, scorecards = future.result()
+                scorecard_data[application_id] = scorecards
             except Exception as exc:
                 print(f'Offer processing generated an exception: {exc}')
     
@@ -166,3 +180,32 @@ if __name__ == "__main__":
     for candidate_id, data in candidates_to_offers.items():
         if data["offers"] > 1:
             print(f"{data['name']} has {data['offers']} offers")
+
+    # Collate all the data
+    scorecards_data_for_offers = {}
+    for offer in accepted_offers:
+        candidate = candidate_data[offer["candidate_id"]]
+        scorecards = scorecard_data[offer["application_id"]]
+        application = next(app for app in candidate["applications"] if app["id"] == offer["application_id"])
+        scorecards_data_for_offers[offer["id"]] = {
+            "candidate_name": candidate["first_name"] + " " + candidate["last_name"],
+            "candidate_data": {
+                "company": candidate["company"],
+                "title": candidate["title"],
+                "created_at": candidate["created_at"],
+                "recruiter_name": candidate["recruiter"]["name"],
+            },
+            "application_id": offer["application_id"],
+            "application_data": {
+                "source": application["source"]["public_name"],
+                "credited_to": application["credited_to"]["name"] if application["credited_to"] else None,
+                "jobs": [job["name"] for job in application["jobs"]],
+                "prospective_department": application["prospective_department"]
+            },
+            "scorecards_data": [format_scorecard(scorecard) for scorecard in scorecards]
+        }
+    
+    # Write the data to a JSON file
+    with open("scorecards_data.json", "w") as f:
+        json.dump(scorecards_data_for_offers, f)
+        
