@@ -129,9 +129,9 @@ def format_scorecard(scorecard: Dict) -> Dict:
     return {
         "created_at": scorecard["created_at"],
         "interview": scorecard["interview"],
-        "interview_step": scorecard["interview_step"]["name"] if "interview_step" in scorecard else None,
-        "submitted_by": scorecard["submitted_by"]["name"] if "submitted_by" in scorecard else None,
-        "interviewer": scorecard["interviewer"]["name"] if "interviewer" in scorecard else None,
+        "interview_step": scorecard["interview_step"]["name"] if "interview_step" in scorecard and scorecard["interview_step"] is not None else None,
+        "submitted_by": scorecard["submitted_by"]["name"] if "submitted_by" in scorecard and scorecard["submitted_by"] is not None else None,
+        "interviewer": scorecard["interviewer"]["name"] if "interviewer" in scorecard and scorecard["interviewer"] is not None else None,
         "overall_recommendation": scorecard["overall_recommendation"],
         "attributes": scorecard["attributes"],
         "ratings": scorecard["ratings"],
@@ -193,14 +193,14 @@ if __name__ == "__main__":
                 "company": candidate["company"],
                 "title": candidate["title"],
                 "created_at": candidate["created_at"],
-                "recruiter_name": candidate["recruiter"]["name"] if "recruiter" in candidate else None,
+                "recruiter_name": candidate["recruiter"]["name"] if "recruiter" in candidate and candidate["recruiter"] is not None else None,
             },
             "application_id": offer["application_id"],
             "application_data": {
-                "source": application["source"]["public_name"] if "source" in application else None,
-                "credited_to": application["credited_to"]["name"] if "credited_to" in application else None,
-                "jobs": [job["name"] for job in application["jobs"]] if "jobs" in application else [],
-                "prospective_department": application["prospective_department"]
+                "source": application["source"]["public_name"] if "source" in application and application["source"] is not None else None,
+                "credited_to": application["credited_to"]["name"] if "credited_to" in application and application["credited_to"] is not None else None,
+                "jobs": [job["name"] for job in application["jobs"]] if "jobs" in application and application["jobs"] is not None else [],
+                "prospective_department": application["prospective_department"],
             },
             "scorecards_data": [format_scorecard(scorecard) for scorecard in scorecards]
         }
