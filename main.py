@@ -129,9 +129,9 @@ def format_scorecard(scorecard: Dict) -> Dict:
     return {
         "created_at": scorecard["created_at"],
         "interview": scorecard["interview"],
-        "interview_step": scorecard["interview_step"]["name"] if "name" in scorecard["interview_step"] else None,
-        "submitted_by": scorecard["submitted_by"]["name"] if "name" in scorecard["submitted_by"] else None,
-        "interviewer": scorecard["interviewer"]["name"] if "name" in scorecard["interviewer"] else None,
+        "interview_step": scorecard["interview_step"]["name"] if "interview_step" in scorecard else None,
+        "submitted_by": scorecard["submitted_by"]["name"] if "submitted_by" in scorecard else None,
+        "interviewer": scorecard["interviewer"]["name"] if "interviewer" in scorecard else None,
         "overall_recommendation": scorecard["overall_recommendation"],
         "attributes": scorecard["attributes"],
         "ratings": scorecard["ratings"],
@@ -193,13 +193,13 @@ if __name__ == "__main__":
                 "company": candidate["company"],
                 "title": candidate["title"],
                 "created_at": candidate["created_at"],
-                "recruiter_name": candidate["recruiter"]["name"] if "name" in candidate["recruiter"] else None,
+                "recruiter_name": candidate["recruiter"]["name"] if "recruiter" in candidate else None,
             },
             "application_id": offer["application_id"],
             "application_data": {
-                "source": application["source"]["public_name"] if "public_name" in application["source"] else None,
-                "credited_to": application["credited_to"]["name"] if application["credited_to"] else None,
-                "jobs": [job["name"] for job in application["jobs"]],
+                "source": application["source"]["public_name"] if "source" in application else None,
+                "credited_to": application["credited_to"]["name"] if "credited_to" in application else None,
+                "jobs": [job["name"] for job in application["jobs"]] if "jobs" in application else [],
                 "prospective_department": application["prospective_department"]
             },
             "scorecards_data": [format_scorecard(scorecard) for scorecard in scorecards]
