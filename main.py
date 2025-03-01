@@ -122,7 +122,11 @@ if __name__ == "__main__":
     print(f"Found {len(accepted_offers)} accepted offers")
     scorecard_data = {}
     candidate_data = {}
+    i = 0
     for offer in accepted_offers:
+        i += 1
+        if i % 10 == 0:
+            print(f"Processing offer {i} of {len(accepted_offers)}")
         scorecard_data[offer["candidate_id"]] = get_greenhouse_scorecards(api_token, offer["application_id"])
     candidate_ids = [offer["candidate_id"] for offer in accepted_offers]
     candidates = get_greenhouse_candidates(api_token, candidate_ids)
