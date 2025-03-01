@@ -136,7 +136,7 @@ if __name__ == "__main__":
         return candidate_id, get_greenhouse_scorecards(api_token, application_id)
     
     # Use ThreadPoolExecutor to parallelize API calls
-    with ThreadPoolExecutor(max_workers=7) as executor:
+    with ThreadPoolExecutor(max_workers=6) as executor:
         print("Processing offers in parallel...")
         future_to_offer = {executor.submit(process_offer, offer["candidate_id"], offer["application_id"]): offer for offer in accepted_offers}
         
