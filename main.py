@@ -129,9 +129,9 @@ def format_scorecard(scorecard: Dict) -> Dict:
     return {
         "created_at": scorecard["created_at"],
         "interview": scorecard["interview"],
-        "interview_step": scorecard["interview_step"]["name"],
-        "submitted_by": scorecard["submitted_by"]["name"],
-        "interviewer": scorecard["interviewer"]["name"],
+        "interview_step": scorecard["interview_step"]["name"] if "name" in scorecard["interview_step"] else None,
+        "submitted_by": scorecard["submitted_by"]["name"] if "name" in scorecard["submitted_by"] else None,
+        "interviewer": scorecard["interviewer"]["name"] if "name" in scorecard["interviewer"] else None,
         "overall_recommendation": scorecard["overall_recommendation"],
         "attributes": scorecard["attributes"],
         "ratings": scorecard["ratings"],
@@ -193,11 +193,11 @@ if __name__ == "__main__":
                 "company": candidate["company"],
                 "title": candidate["title"],
                 "created_at": candidate["created_at"],
-                "recruiter_name": candidate["recruiter"]["name"],
+                "recruiter_name": candidate["recruiter"]["name"] if "name" in candidate["recruiter"] else None,
             },
             "application_id": offer["application_id"],
             "application_data": {
-                "source": application["source"]["public_name"],
+                "source": application["source"]["public_name"] if "public_name" in application["source"] else None,
                 "credited_to": application["credited_to"]["name"] if application["credited_to"] else None,
                 "jobs": [job["name"] for job in application["jobs"]],
                 "prospective_department": application["prospective_department"]
