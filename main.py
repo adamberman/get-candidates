@@ -1,3 +1,4 @@
+import argparse
 import json
 import requests
 from datetime import datetime
@@ -65,6 +66,28 @@ def get_greenhouse_accepted_offers(api_token: str, start_date: str = "2023-07-01
         
     return accepted_offers
 
+def get_greenhouse_applications(api_token: str) -> List[Dict]:
+    headers = get_greenhouse_auth_headers(api_token)
+    applications = []
+    page = 1
+    while True:
+        response = requests.get(
+            f"{GREENHOUSE_BASE_URL}/applications",
+            headers=headers,
+            params={
+                "page": page,
+                "per_page": 500,
+                "skip_count": True,
+                "status": "hired"
+            }
+        )
+        response.raise_for_status()
+        new_applications = response.json()
+        if not new_applications:
+            break
+        applications.extend(new_applications)
+        page += 1
+    return applications
 
 def get_greenhouse_scorecards(api_token: str, application_id: int) -> List[Dict]:
     """
@@ -139,9 +162,21 @@ def format_scorecard(scorecard: Dict) -> Dict:
     }
 
 if __name__ == "__main__":
+    parser = argparse.ArgumentParser()
+    parser.add_argument("--use-applications", action="store_true", help="Use applications data")
+    args = parser.parse_args()
+    use_applications = args.use_applications
+
     api_token = os.getenv("GREENHOUSE_API_TOKEN")
-    accepted_offers = get_greenhouse_accepted_offers(api_token)
-    print(f"Found {len(accepted_offers)} accepted offers")
+    job_dicts = []
+    if use_applications:
+        applications = get_greenhouse_applications(api_token)
+        print(f"Found {len(applications)} applications")
+        job_dicts = [{"application_id": application["id"], "candidate_id": application["candidate_id"]} for application in applications]
+    else:
+        accepted_offers = get_greenhouse_accepted_offers(api_token)
+        print(f"Found {len(accepted_offers)} accepted offers")
+        job_dicts = [{"application_id": offer["application_id"], "candidate_id": offer["candidate_id"]} for offer in accepted_offers]
     scorecard_data = {}
     candidate_data = {}
     
@@ -152,42 +187,44 @@ if __name__ == "__main__":
     # Use ThreadPoolExecutor to parallelize API calls
     with ThreadPoolExecutor(max_workers=5) as executor:
         print("Processing offers in parallel...")
-        future_to_offer = {executor.submit(process_offer, offer["application_id"]): offer for offer in accepted_offers}
+        future_to_offer = {executor.submit(process_offer, job_dict["application_id"]): job_dict for job_dict in job_dicts}
         
         completed = 0
         for future in concurrent.futures.as_completed(future_to_offer):
             completed += 1
             if completed % 10 == 0:
-                print(f"Processed {completed} of {len(accepted_offers)} offers")
+                print(f"Processed {completed} of {len(job_dicts)} offers")
             try:
                 application_id, scorecards = future.result()
                 scorecard_data[application_id] = scorecards
             except Exception as exc:
                 print(f'Offer processing generated an exception: {exc}')
     
-    candidate_ids = [offer["candidate_id"] for offer in accepted_offers]
+    candidate_ids = [job_dict["candidate_id"] for job_dict in job_dicts]
     candidates = get_greenhouse_candidates(api_token, candidate_ids)
     for candidate in candidates:
         candidate_data[candidate["id"]] = candidate
     print(f"Found {len(scorecard_data)} scorecards and {len(candidate_data)} candidates")
     candidates_to_offers = {}
-    for offer in accepted_offers:
-        if offer["candidate_id"] not in candidates_to_offers:
-            candidate_name = candidate_data[offer["candidate_id"]]["first_name"] + " " + candidate_data[offer["candidate_id"]]["last_name"]
-            candidates_to_offers[offer["candidate_id"]] = { "name": candidate_name, "offers": 1}
+    for candidate_id in candidate_ids:
+        if candidate_id not in candidates_to_offers:
+            candidate_name = candidate_data[candidate_id]["first_name"] + " " + candidate_data[candidate_id]["last_name"]
+            candidates_to_offers[candidate_id] = { "name": candidate_name, "offers": 1}
         else:
-            candidates_to_offers[offer["candidate_id"]]["offers"] += 1
+            candidates_to_offers[candidate_id]["offers"] += 1
     for candidate_id, data in candidates_to_offers.items():
         if data["offers"] > 1:
             print(f"{data['name']} has {data['offers']} offers")
+        else:
+            print(f"{data['name']}")
 
     # Collate all the data
     scorecards_data_for_offers = {}
-    for offer in accepted_offers:
+    for offer in job_dicts:
         candidate = candidate_data[offer["candidate_id"]]
         scorecards = scorecard_data[offer["application_id"]]
         application = next(app for app in candidate["applications"] if app["id"] == offer["application_id"])
-        scorecards_data_for_offers[offer["id"]] = {
+        scorecards_data_for_offers[offer["application_id"]] = {
             "candidate_name": candidate["first_name"] + " " + candidate["last_name"],
             "candidate_data": {
                 "company": candidate["company"],
